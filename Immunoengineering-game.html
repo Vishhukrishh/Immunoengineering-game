@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invaders & Defenders - Immune System Strategy Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            background: linear-gradient(135deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4);
+            background-size: 400% 400%;
+            animation: gradientShift 8s ease infinite;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px 25px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .score-info {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+        }
+
+        .health-bar {
+            width: 200px;
+            height: 20px;
+            background: #ecf0f1;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #34495e;
+        }
+
+        .health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #e74c3c, #f39c12, #27ae60);
+            transition: width 0.3s ease;
+            border-radius: 8px;
+        }
+
+        .game-area {
+            position: absolute;
+            top: 100px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+
+        .immune-cell {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            border: 3px solid #fff;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .immune-cell:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .immune-cell.selected {
+            transform: scale(1.2);
+            box-shadow: 0 0 20px #fff, 0 0 40px #fff;
+        }
+
+        .macrophage {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+
+        .dendritic {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+        }
+
+        .neutrophil {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+        }
+
+        .antigen {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            border: 4px solid #2c3e50;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .antigen:hover {
+            transform: scale(1.05);
+        }
+
+        .antigen.virus {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            border-radius: 50%;
+        }
+
+        .antigen.bacteria {
+            background: linear-gradient(135deg, #27ae60, #229954);
+            border-radius: 10px;
+        }
+
+        .antigen.toxin {
+            background: linear-gradient(135deg, #e67e22, #d35400);
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+        }
+
+        .memory-indicator {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 25px;
+            height: 25px;
+            background: #f1c40f;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            border: 2px solid #fff;
+        }
+
+        .match-line {
+            position: absolute;
+            height: 3px;
+            background: linear-gradient(90deg, #fff, #f1c40f, #fff);
+            border-radius: 2px;
+            z-index: 50;
+            animation: pulse 0.5s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scaleY(1); }
+            50% { opacity: 0.7; transform: scaleY(1.5); }
+        }
+
+        .feedback {
+            position: absolute;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 200;
+            animation: feedbackFloat 2s ease-out forwards;
+            pointer-events: none;
+        }
+
+        .feedback.correct {
+            color: #27ae60;
+        }
+
+        .feedback.incorrect {
+            color: #e74c3c;
+        }
+
+        @keyframes feedbackFloat {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-50px); }
+        }
+
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 25px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .legend-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            z-index: 300;
+            display: none;
+        }
+
+        .restart-btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .restart-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="hud">
+            <div class="score-info">
+                <div class="stat">
+                    <div class="stat-value" id="score">0</div>
+                    <div class="stat-label">Score</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="accuracy">100%</div>
+                    <div class="stat-label">Accuracy</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="memory-count">0</div>
+                    <div class="stat-label">Memory Cells</div>
+                </div>
+            </div>
+            <div>
+                <div class="stat-label">Immune System Health</div>
+                <div class="health-bar">
+                    <div class="health-fill" id="health-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-area" id="game-area">
+            <!-- Immune cells -->
+            <div class="immune-cell macrophage" id="macrophage" style="bottom: 100px; left: 100px;" title="Macrophage - Engulfs bacteria">🔴</div>
+            <div class="immune-cell dendritic" id="dendritic" style="bottom: 100px; left: 200px;" title="Dendritic Cell - Presents viruses">🔵</div>
+            <div class="immune-cell neutrophil" id="neutrophil" style="bottom: 100px; left: 300px;" title="Neutrophil - Neutralizes toxins">🟡</div>
+        </div>
+
+        <div class="instructions">
+            <div><strong>Match immune cells to the correct antigens!</strong></div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-icon" style="background: linear-gradient(135deg, #e74c3c, #c0392b);"></div>
+                    <span>Macrophage → 🦠 Bacteria</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon" style="background: linear-gradient(135deg, #3498db, #2980b9);"></div>
+                    <span>Dendritic → 🦠 Viruses</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon" style="background: linear-gradient(135deg, #f39c12, #e67e22);"></div>
+                    <span>Neutrophil → ☠ Toxins</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-over" id="game-over">
+            <h2>Immune System Overwhelmed!</h2>
+            <p>Your final score: <span id="final-score">0</span></p>
+            <p>Accuracy: <span id="final-accuracy">0%</span></p>
+            <p>Memory cells created: <span id="final-memory">0</span></p>
+            <button class="restart-btn" onclick="restartGame()">Boost Immunity Again!</button>
+        </div>
+    </div>
+
+    <script>
+        class ImmuneGame {
+            constructor() {
+                this.score = 0;
+                this.health = 100;
+                this.totalMatches = 0;
+                this.correctMatches = 0;
+                this.selectedCell = null;
+                this.antigens = [];
+                this.memoryBank = new Set();
+                this.gameArea = document.getElementById('game-area');
+                this.antigenTypes = [
+                    { type: 'virus', emoji: '🦠', color: '#9b59b6', correctCell: 'dendritic' },
+                    { type: 'bacteria', emoji: '🦠', color: '#27ae60', correctCell: 'macrophage' },
+                    { type: 'toxin', emoji: '☠', color: '#e67e22', correctCell: 'neutrophil' }
+                ];
+                
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.spawnAntigen();
+                this.gameLoop();
+                this.updateDisplay();
+            }
+
+            setupEventListeners() {
+                // Immune cell selection
+                document.querySelectorAll('.immune-cell').forEach(cell => {
+                    cell.addEventListener('click', (e) => this.selectCell(e.target));
+                });
+
+                // Prevent form submission on any forms
+                document.addEventListener('submit', (e) => e.preventDefault());
+            }
+
+            selectCell(cell) {
+                // Remove previous selection
+                document.querySelectorAll('.immune-cell').forEach(c => c.classList.remove('selected'));
+                
+                // Select new cell
+                this.selectedCell = cell.id;
+                cell.classList.add('selected');
+            }
+
+            spawnAntigen() {
+                if (this.health <= 0) return;
+
+                const antigenType = this.antigenTypes[Math.floor(Math.random() * this.antigenTypes.length)];
+                const antigen = document.createElement('div');
+                
+                antigen.className = antigen ${antigenType.type};
+                antigen.innerHTML = antigenType.emoji;
+                antigen.dataset.type = antigenType.type;
+                antigen.dataset.correctCell = antigenType.correctCell;
+                
+                // Random spawn position at top
+                const x = Math.random() * (window.innerWidth - 100);
+                antigen.style.left = x + 'px';
+                antigen.style.top = '0px';
+                
+                // Check if this antigen type is in memory
+                if (this.memoryBank.has(antigenType.type)) {
+                    const memoryIndicator = document.createElement('div');
+                    memoryIndicator.className = 'memory-indicator';
+                    memoryIndicator.innerHTML = '⚡';
+                    antigen.appendChild(memoryIndicator);
+                    antigen.dataset.hasMemory = 'true';
+                }
+                
+                antigen.addEventListener('click', (e) => this.matchAntigen(e.target));
+                
+                this.gameArea.appendChild(antigen);
+                this.antigens.push(antigen);
+                
+                // Move antigen down
+                this.moveAntigen(antigen);
+                
+                // Spawn next antigen
+                setTimeout(() => this.spawnAntigen(), Math.random() * 2000 + 1500);
+            }
+
+            moveAntigen(antigen) {
+                let position = 0;
+                const speed = antigen.dataset.hasMemory ? 0.5 : 1; // Memory antigens move slower
+                
+                const move = () => {
+                    if (!antigen.parentNode) return;
+                    
+                    position += speed;
+                    antigen.style.top = position + 'px';
+                    
+                    // Check if antigen reached bottom
+                    if (position > window.innerHeight - 100) {
+                        this.antigenEscaped(antigen);
+                        return;
+                    }
+                    
+                    requestAnimationFrame(move);
+                };
+                
+                move();
+            }
+
+            matchAntigen(antigen) {
+                if (!this.selectedCell) {
+                    this.showFeedback(antigen, 'Select an immune cell first!', 'incorrect');
+                    return;
+                }
+
+                this.totalMatches++;
+                const isCorrect = antigen.dataset.correctCell === this.selectedCell;
+                const hasMemory = antigen.dataset.hasMemory === 'true';
+                
+                if (isCorrect) {
+                    this.correctMatches++;
+                    
+                    // Calculate score based on speed and memory
+                    let points = hasMemory ? 200 : 100;
+                    this.score += points;
+                    
+                    // Add to memory bank
+                    this.memoryBank.add(antigen.dataset.type);
+                    
+                    this.showFeedback(antigen, hasMemory ? Memory Boost! +${points} : Correct! +${points}, 'correct');
+                    this.drawMatchLine(antigen);
+                    
+                } else {
+                    this.health -= 15;
+                    this.showFeedback(antigen, 'Wrong match! -15 Health', 'incorrect');
+                }
+                
+                // Remove antigen
+                this.removeAntigen(antigen);
+                this.updateDisplay();
+                
+                // Check game over
+                if (this.health <= 0) {
+                    this.gameOver();
+                }
+            }
+
+            antigenEscaped(antigen) {
+                this.health -= 10;
+                this.showFeedback(antigen, 'Antigen escaped! -10 Health', 'incorrect');
+                this.removeAntigen(antigen);
+                this.updateDisplay();
+                
+                if (this.health <= 0) {
+                    this.gameOver();
+                }
+            }
+
+            removeAntigen(antigen) {
+                const index = this.antigens.indexOf(antigen);
+                if (index > -1) {
+                    this.antigens.splice(index, 1);
+                }
+                if (antigen.parentNode) {
+                    antigen.parentNode.removeChild(antigen);
+                }
+            }
+
+            drawMatchLine(antigen) {
+                const selectedCellElement = document.getElementById(this.selectedCell);
+                const cellRect = selectedCellElement.getBoundingClientRect();
+                const antigenRect = antigen.getBoundingClientRect();
+                
+                const line = document.createElement('div');
+                line.className = 'match-line';
+                
+                const deltaX = antigenRect.left - cellRect.left;
+                const deltaY = antigenRect.top - cellRect.top;
+                const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                const angle = Math.atan2(deltaY, deltaX) * 180 / Math.PI;
+                
+                line.style.width = distance + 'px';
+                line.style.left = cellRect.left + cellRect.width / 2 + 'px';
+                line.style.top = cellRect.top + cellRect.height / 2 + 'px';
+                line.style.transform = rotate(${angle}deg);
+                line.style.transformOrigin = '0 50%';
+                
+                document.body.appendChild(line);
+                
+                setTimeout(() => {
+                    if (line.parentNode) {
+                        line.parentNode.removeChild(line);
+                    }
+                }, 500);
+            }
+
+            showFeedback(element, text, type) {
+                const feedback = document.createElement('div');
+                feedback.className = feedback ${type};
+                feedback.textContent = text;
+                
+                const rect = element.getBoundingClientRect();
+                feedback.style.left = rect.left + rect.width / 2 + 'px';
+                feedback.style.top = rect.top + 'px';
+                feedback.style.transform = 'translateX(-50%)';
+                
+                document.body.appendChild(feedback);
+                
+                setTimeout(() => {
+                    if (feedback.parentNode) {
+                        feedback.parentNode.removeChild(feedback);
+                    }
+                }, 2000);
+            }
+
+            updateDisplay() {
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('health-fill').style.width = Math.max(0, this.health) + '%';
+                document.getElementById('memory-count').textContent = this.memoryBank.size;
+                
+                const accuracy = this.totalMatches > 0 ? Math.round((this.correctMatches / this.totalMatches) * 100) : 100;
+                document.getElementById('accuracy').textContent = accuracy + '%';
+            }
+
+            gameOver() {
+                document.getElementById('final-score').textContent = this.score;
+                document.getElementById('final-accuracy').textContent = 
+                    this.totalMatches > 0 ? Math.round((this.correctMatches / this.totalMatches) * 100) + '%' : '100%';
+                document.getElementById('final-memory').textContent = this.memoryBank.size;
+                document.getElementById('game-over').style.display = 'block';
+                
+                // Clear remaining antigens
+                this.antigens.forEach(antigen => {
+                    if (antigen.parentNode) {
+                        antigen.parentNode.removeChild(antigen);
+                    }
+                });
+                this.antigens = [];
+            }
+
+            gameLoop() {
+                // Clean up antigens that are off screen
+                this.antigens = this.antigens.filter(antigen => {
+                    if (!antigen.parentNode) return false;
+                    const rect = antigen.getBoundingClientRect();
+                    return rect.top < window.innerHeight + 100;
+                });
+                
+                if (this.health > 0) {
+                    requestAnimationFrame(() => this.gameLoop());
+                }
+            }
+        }
+
+        let game;
+
+        function startGame() {
+            game = new ImmuneGame();
+        }
+
+        function restartGame() {
+            document.getElementById('game-over').style.display = 'none';
+            
+            // Clear any remaining elements
+            document.querySelectorAll('.antigen').forEach(el => el.remove());
+            document.querySelectorAll('.match-line').forEach(el => el.remove());
+            document.querySelectorAll('.feedback').forEach(el => el.remove());
+            document.querySelectorAll('.immune-cell').forEach(cell => cell.classList.remove('selected'));
+            
+            startGame();
+        }
+
+        // Start the game when page loads
+        window.addEventListener('load', startGame);
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98400b42c7cd060c',t:'MTc1ODY5MzQ0My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
